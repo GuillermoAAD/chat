@@ -1,14 +1,21 @@
 <template>
 <div class="container">
 <h3 class=" text-center">Mensajes</h3>
+
+
+<div class="">
+  <button @click="logout" class="exit_btn" type="button"><i class="fa " aria-hidden="true">SALIR</i></button>
+</div>
+
 <div class="messaging">
       <div class="inbox_msg">
         <!--INBOX-->
         <div class="inbox_people">
           <div class="headind_srch">
             <div class="recent_heading">
-              <h4>Recientes</h4>
+              <h4>Contactos</h4>
             </div>
+            <!--
             <div class="srch_bar">
               <div class="stylish-input-group">
                 <input type="text" class="search-bar"  placeholder="Buscar" >
@@ -16,30 +23,32 @@
                 <button type="button"> <i class="fa fa-search" aria-hidden="true"></i> </button>
                 </span> </div>
             </div>
+            -->
           </div>
+
           <div class="inbox_chat">
+
+
             <div class="chat_list active_chat">
               <div class="chat_people">
-                <!--
-                <div class="chat_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
-                -->
                 <div class="chat_ib">
-                  <h5>Sunil Rajput <span class="chat_date">Dec 25</span></h5>
-                  <p>Test, which is a new approach to have all solutions 
-                    astrology under one roof.</p>
+                  <h5>Sunil Rajput <!--<span class="chat_date">Dec 25</span>--></h5>
+                  
                 </div>
               </div>
             </div>
-            <div class="chat_list">
-              <div class="chat_people">
-                <!--
-                <div class="chat_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
-                -->
-                <div class="chat_ib">
-                  <h5>Sunil Rajput <span class="chat_date">Dec 25</span></h5>
-                  <p>Test, which is a new approach to have all solutions 
-                    astrology under one roof.</p>
+
+
+
+            <div v-for="user in users" :key="user.id">
+              <div class="chat_list ">
+                <a @click="selectUser(user.idUser)">
+                <div class="chat_people">
+                  <div class="chat_ib">
+                    <h5>{{user.userName}} {{user.idUser}}</h5>
+                  </div>
                 </div>
+                </a>
               </div>
             </div>
             
@@ -60,8 +69,8 @@
                     <span class="time_date">
                       {{message.author}}
                     </span>
-                    <p>{{message.message}}</p>
-                    <!--<span class="time_date"> 11:01 AM    |    June 9</span>-->
+
+                    <p>{{message.message}}</p>                    
                     
                     <span class="time_date">
                       {{message.createdAt.toDate().toLocaleString()}}
@@ -73,8 +82,9 @@
           </div>
           <div class="type_msg">
             <div class="input_msg_write">
+              
               <input @keyup.enter="saveMessage" v-model="message" type="text" class="write_msg" placeholder="Escribe un mensaje" />
-              <button @click="saveMessage" class="msg_send_btn" type="button"><i class="fa fa-paper-plane-o" aria-hidden="true"></i></button>
+              <button @click="saveMessage" class="msg_send_btn" type="button"><i class="fa fa-paper-plane-o" aria-hidden="true">→</i></button>
             </div>
           </div>
         </div>
@@ -93,11 +103,19 @@ import firebase from 'firebase'
 export default {
   name: 'PrivateChat',
 
+  
+
   data() {
      return {
         message:null,
         messages:[],
-        authUser:{}
+        authUser:{},
+        idUser:{},
+        users:[],
+        destinatario:{},
+        idDestinatario: {},
+        idContactoSeleccionado:{},
+        contactoSeleccionado:{}
 
      }
   },
@@ -106,18 +124,84 @@ export default {
       let box=document.querySelector('.msg_history');
       box.scrollTop=box.scrollHeight;
     },
+
+    logout(){
+      firebase.auth().signOut().then(() => {
+        // Sign-out successful.
+
+      }).catch((error) => {
+        // An error happened.
+      });
+    },
+
+    /// usuarios
+    checkUser(){
+      //Save to firestore
+      var docRef =  db.collection("users").doc(this.authUser.uid);
+      docRef.get().then((doc) => {
+        if (doc.exists) {
+          //console.log('Usuario ya existe');
+        } else {
+          this.saveUser();
+        }
+      }).catch((error) => {
+        //el usuario ya está en la base de datos.
+      });
+    },
+    saveUser(){
+      //Save to firestore
+      db.collection("users").doc(this.authUser.uid).set({
+        idUser: this.authUser.uid,
+        userName: this.authUser.displayName,
+        registeredAt: new Date()
+      }).then(() => {
+        //el usuario no está en la base de datos y lo inserta.
+        //console.log('Usuario agregado');
+
+      }).catch((error) => {
+      //el usuario ya está en la base de datos.
+        console.log('Error: ', error);
+      });
+    },
+    fetchUsers(){
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+          var uid = user.uid;
+          //console.log('el idUser es:  ', uid);
+
+          //Recupera todos los usuarios excepto el actual
+          db.collection('users').where("idUser", "!=", uid)
+          .onSnapshot((querySnapshot)=>{
+            var allUsers=[];
+            querySnapshot.forEach((doc) => {
+              allUsers.push(doc.data());
+            });
+              this.users=allUsers;
+          });
+          
+        } else {
+          // User is signed out
+          // ...
+        }
+      });
+    },
+
+    /// Mensajes
     saveMessage() {
       //Save to firestore
       db.collection('chat').add({
         message: this.message,
+        createdAt: new Date(),
         author: this.authUser.displayName,
-        createdAt: new Date()
+        idUser: this.authUser.uid,
+        //destinatario: this.contactoSeleccionado,
+        idDestinatario: this.idContactoSeleccionado
         
       }).then(()=>{
         this.scrollToBottom();
       })
       this.message=null;
-     },
+    },
   
     fetchMessages(){
       db.collection('chat').orderBy('createdAt').onSnapshot((querySnapshot)=>{
@@ -127,24 +211,88 @@ export default {
         }) 
         this.messages=allMessages;
 
+        setTimeout(()=>{
+          this.scrollToBottom();
+        },1000);
+      })
+    },
+
+    selectUser(uid){      
+      this.idContactoSeleccionado = uid;
+      
+      //Recupera todos los mensajes de usuario seleccionado
+      //db.collection('chat').where("idUser", "==", uid)
+      //Recupera todos los mensajes de usuario actual
+
+      var messagesSended=[];
+
+      //console.log("De:  ", this.authUser.uid);
+      // /console.log("Para:  ", this.idContactoSeleccionado);
+      db.collection('chat')
+      .where("idUser", "==", this.authUser.uid).where("idDestinatario", "==", this.idContactoSeleccionado)
+      //.where("idUser", "==", this.idContactoSeleccionado).where("idDestinatario", "==", this.authUser.uid)
+      .onSnapshot((querySnapshot)=>{
+        let allMessagesSended=[];
+        querySnapshot.forEach((doc) => {
+          allMessagesSended.push(doc.data());
+        });
+          this.messagesSended=allMessagesSended;
+
           setTimeout(()=>{
             this.scrollToBottom();
           },1000);
-      })
-    }
+      });
+
+      
+
+      var messagesReceived=[];
+
+      db.collection('chat')
+      .where("idUser", "==", this.idContactoSeleccionado).where("idDestinatario", "==", this.authUser.uid)
+      .onSnapshot((querySnapshot)=>{
+        let allMessagesReceived=[];
+        querySnapshot.forEach((doc) => {
+          allMessagesReceived.push(doc.data());
+        });
+          this.messagesReceived=allMessagesReceived;
+          this.messages=allMessagesReceived;
+
+          setTimeout(()=>{
+            this.scrollToBottom();
+          },1000);
+      });
+
+      
+      console.log("Ates for: ");
+/*
+      for (var message in this.messages)
+      {
+        console.log("Mensaje:  ", this.messages[message]);
+      }
+      */
+     this.messages.forEach(function(elemento){
+       console.log(elemento);
+     })
+
+      //this.messages=allMessagesReceived;
+        
+    },
+
   },
   created(){
     
     firebase.auth().onAuthStateChanged(user=>{
       if(user){
         this.authUser=user;
+        //this.revisarExistenciaUsuario();
+        this.checkUser();
       }else{
         this.authUser={}
       }
     })
 
-    this.fetchMessages();
-
+    //this.fetchMessages();
+    this.fetchUsers();
   },
   beforeRouteEnter(to,from,next){
     next(vm=>{
@@ -298,6 +446,20 @@ img{ max-width:100%;}
   top: 11px;
   width: 33px;
 }
+.exit_btn {
+  background: #05728f none repeat scroll 0 0;
+  border: medium none;
+  border-radius: 7%;
+  color: #fff;
+  cursor: pointer;
+  font-size: 17px;
+  height: 33px;
+  position: absolute;
+  right: 0;
+  top: 11px;
+  width: 77px;
+}
+
 .messaging { padding: 0 0 50px 0;}
 .msg_history {
   height: 516px;

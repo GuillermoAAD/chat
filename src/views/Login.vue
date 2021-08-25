@@ -24,6 +24,9 @@
           // The signed-in user info.
           var user = result.user;
           // ...
+
+          //Guardar los datos del usuario en la coleccion users
+
           this.$router.push('/');
 
         }).catch((error) => {
