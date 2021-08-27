@@ -15,44 +15,23 @@
             <div class="recent_heading">
               <h4>Contactos</h4>
             </div>
-            <!--
-            <div class="srch_bar">
-              <div class="stylish-input-group">
-                <input type="text" class="search-bar"  placeholder="Buscar" >
-                <span class="input-group-addon">
-                <button type="button"> <i class="fa fa-search" aria-hidden="true"></i> </button>
-                </span> </div>
-            </div>
-            -->
           </div>
 
           <div class="inbox_chat">
 
-
-            <div class="chat_list active_chat">
-              <div class="chat_people">
-                <div class="chat_ib">
-                  <h5>Sunil Rajput <!--<span class="chat_date">Dec 25</span>--></h5>
-                  
-                </div>
-              </div>
-            </div>
-
-
-
-
             <div v-for="user in users" :key="user.id">
-              <!--<div :class="[this.idContactoSeleccionado==user.idUser?'chat_list':'chat_list']">-->
+              <div :class="[idContactoSeleccionado==user.idUser?'active_chat':'']">
                 <div class="chat_list ">
                   <a @click="selectUser(user.idUser)">
                   <div class="chat_people">
                     <div class="chat_ib">
-                      <h5>{{user.userName}} {{user.idUser}}</h5>
+                      <h5>{{user.userName}}</h5>
+                      <!--<h5>{{user.idUser}}<br>{{idContactoSeleccionado}}</h5>-->
                     </div>
                   </div>
                   </a>
                 </div>
-              <!--</div>-->
+              </div>
             </div>
             
           </div>
@@ -103,22 +82,25 @@
 
 import firebase from 'firebase'
 
+var idIntervalo = {};
+var count = 0;
+
 export default {
   name: 'PrivateChat',
-
-  
 
   data() {
      return {
         message:null,
         messages:[],
+        messagesReceived:[],
+        messagesSended:[],
         authUser:{},
         idUser:{},
         users:[],
         destinatario:{},
         idDestinatario: {},
         idContactoSeleccionado:{},
-        contactoSeleccionado:{}
+        contactoSeleccionado:{},
 
      }
   },
@@ -220,7 +202,7 @@ export default {
       })
     },
 
-    recuperarConversacion99(){
+    recuperarConversacion99NOFUNCIONA(){
 
       var messagesReceived=[];
       let usrloged = this.authUser.uid;
@@ -255,6 +237,7 @@ export default {
 
     },
 
+    //async recuperarConversacionBUENAPERONOREALTIME(){
     async recuperarConversacion(){
 
       //var messagesReceived=[];
@@ -286,14 +269,16 @@ export default {
       return conversationArray;
     },
 
-    async recuperarConversacionNO(){
+    async recuperarConversacion3NOFUNCIONA(){
+      
 
       //var messagesReceived=[];
       let usrloged = this.authUser.uid;
       let usrSelected = this.idContactoSeleccionado;
 
-      const chatRef = db.collection('chat');
+      
 
+      const chatRef = db.collection('chat');
 
 /*
       const messagesSended = chatRef
@@ -302,22 +287,22 @@ export default {
       .get();
 */
 
-      var messagesSended = chatRef
+      // /let messagesSended = [];
+      chatRef
       .where("idUser", "==", usrloged)
       .where("idDestinatario", "==", usrSelected)
-      .onSnapshot((querySnapshot)=>{
-        let allMessagesSended=[];
+      .onSnapshot((querySnapshot) => {
+        let allMessagesSended = [];
         querySnapshot.forEach((doc) => {
           allMessagesSended.push(doc.data());
         });
-          //this.
-          messagesSended=allMessagesSended;
+        this.messagesSended = allMessagesSended;
 
-          setTimeout(()=>{
-            this.scrollToBottom();
-          },1000);
+        setTimeout(()=>{
+          this.scrollToBottom();
+        },1000);
       });
-
+      
       /*
       const messagesReceived = chatRef
       .where("idUser", "==", usrSelected)
@@ -325,40 +310,55 @@ export default {
       .get();
       */
 
-      var messagesReceived = chatRef
-      .where("idUser", "==", usrSelected).
-      where("idDestinatario", "==", usrloged)
-      .onSnapshot((querySnapshot)=>{
-        let allMessagesReceived=[];
+      //var messagesReceived = [];
+      chatRef
+      .where("idUser", "==", usrSelected)
+      .where("idDestinatario", "==", usrloged)
+      .onSnapshot((querySnapshot) => {
+        let allMessagesReceived = [];
         querySnapshot.forEach((doc) => {
-          allMessagesReceived.push(doc.data());
-        });
-          //this.
-          messagesReceived=allMessagesReceived;
-          
-          setTimeout(()=>{
-            this.scrollToBottom();
-          },1000);
-      });
+          allMessagesReceived.push(doc.data())
+          //console.log("mensaje:  ",doc.data())
+        })
 
+        //console.log("MESNAJES:  ",allMessagesReceived);
+        
+        this.messagesReceived = allMessagesReceived;
+
+        //console.log("MESNAJES 2  :  ",messagesReceived);
+        
+        setTimeout(()=>{
+          this.scrollToBottom();
+        },1000);
+        
+      })
+
+      //this.messages=this.messagesReceived;
+
+      console.log("MESNAJES 3  :  ", this.messagesReceived);
+
+      //const [sendedQuerySnapshot, receivedQuerySnapshot] = await Promise.all([
+        //this.messagesSended,
+        //this.messagesReceived
+      // /]);
       
-      const [sendedQuerySnapshot, receivedQuerySnapshot] = await Promise.all([
-        messagesSended,
-        messagesReceived
-      ]);
+      
 
-      const messagesSendedArray = sendedQuerySnapshot.docs;
-      const messagesReceivedArray = receivedQuerySnapshot.docs;
-      //const messagesSendedArray = this.messagesSended.docs;
-      //const messagesReceivedArray = this.messagesReceived.docs;
+      //const messagesSendedArray = sendedQuerySnapshot.docs;
+      //const messagesReceivedArray = receivedQuerySnapshot.docs;
+      const messagesSendedArray = this.messagesSended;
+      const messagesReceivedArray = this.messagesReceived;
       const conversationArray = messagesSendedArray.concat(messagesReceivedArray);
+      setTimeout(()=>{
+          this.scrollToBottom();
+        },1000);
 
       return conversationArray;
     },
     
+    recuperarConversacionOrdenada(){
 
-    selectUser(selectedUID){
-      this.idContactoSeleccionado = selectedUID;
+      console.log("FUNCIONrecuperarConversacionOrdenada():   ");
 
       this.recuperarConversacion().then(result => {
         let allMessages=[];
@@ -384,7 +384,27 @@ export default {
           this.scrollToBottom();
         },1000);
       });
-        
+
+    },
+
+    selectUser(selectedUID){
+      this.idContactoSeleccionado = selectedUID;
+      this.repetirCadaSegundo();
+    },
+
+    mensaje(){
+      count = count+1;
+      console.log("hola:  ", count);
+      //this.recuperarConversacionOrdenada(); ///Descomentar para que funcione
+    },
+
+    repetirCadaSegundo() {
+      if(idIntervalo){
+        clearInterval(idIntervalo);
+        count=0;
+      }
+      idIntervalo = setInterval(this.mensaje, 1000);
+      
     },
 
   },
