@@ -26,7 +26,6 @@
                   <div class="chat_people">
                     <div class="chat_ib">
                       <h5>{{user.userName}}</h5>
-                      <!--<h5>{{user.idUser}}<br>{{idContactoSeleccionado}}</h5>-->
                     </div>
                   </div>
                   </a>
@@ -62,11 +61,15 @@
               </div>
             </div>
           </div>
+
+          <!--Escribir y mandar mensaje-->
+          <!--PARA OCULTAR SI NO SE HA SELECCIONADO
+          <div :class="[message.author==authUser.displayName?'sent_msg':'received_msg']">-->
           <div class="type_msg">
             <div class="input_msg_write">
               
-              <input @keyup.enter="saveMessage" v-model="message" type="text" class="write_msg" placeholder="Escribe un mensaje" />
-              <button @click="saveMessage" class="msg_send_btn" type="button"><i class="fa fa-paper-plane-o" aria-hidden="true">►</i></button>
+              <input @keyup.enter="sendMessage" v-model="message" type="text" class="write_msg" placeholder="Escribe un mensaje" />
+              <button @click="sendMessage" class="msg_send_btn" type="button"><i class="fa fa-paper-plane-o" aria-hidden="true">►</i></button>
             </div>
           </div>
         </div>
@@ -84,6 +87,8 @@ import firebase from 'firebase'
 
 var idIntervalo = {};
 var count = 0;
+let usrlogedID = {};
+let usrSelectedID = {};
 
 export default {
   name: 'PrivateChat',
@@ -94,8 +99,13 @@ export default {
         messages:[],
         messagesReceived:[],
         messagesSended:[],
+        
         authUser:{},
+
         idUser:{},
+        userName: {},
+
+
         users:[],
         destinatario:{},
         idDestinatario: {},
@@ -121,7 +131,7 @@ export default {
 
     /// usuarios
     checkUser(){
-      //Save to firestore
+      //REvisa y agrega el usuario logeado a la BD
       var docRef =  db.collection("users").doc(this.authUser.uid);
       docRef.get().then((doc) => {
         if (doc.exists) {
@@ -133,12 +143,15 @@ export default {
         //el usuario ya está en la base de datos.
       });
     },
+
     saveUser(){
       //Save to firestore
       db.collection("users").doc(this.authUser.uid).set({
         idUser: this.authUser.uid,
         userName: this.authUser.displayName,
+        groups: {},
         registeredAt: new Date()
+        
       }).then(() => {
         //el usuario no está en la base de datos y lo inserta.
         //console.log('Usuario agregado');
@@ -148,6 +161,7 @@ export default {
         console.log('Error: ', error);
       });
     },
+
     fetchUsers(){
       firebase.auth().onAuthStateChanged((user) => {
         if (user) {
@@ -155,6 +169,7 @@ export default {
           //console.log('el idUser es:  ', uid);
 
           //Recupera todos los usuarios excepto el actual
+          //NOTA: Cambiar eL escuchador por un get()
           db.collection('users').where("idUser", "!=", uid)
           .onSnapshot((querySnapshot)=>{
             var allUsers=[];
@@ -171,16 +186,148 @@ export default {
       });
     },
 
+
+
     /// Mensajes
+    checkMembers(){
+      //REvisa si el chat con la persona existe existe
+      const membersRef = db.collection('members');
+
+      //let usrlogedID = this.authUser.uid;
+      //let usrSelectedID = this.idContactoSeleccionado;
+
+
+      let members = membersRef
+      .where('members', 'in', [[usrlogedID,usrSelectedID]])
+      //.where("usrlogedID", "==", true)
+      //.where("usrSelectedID", "==", true)
+      .get();
+      
+
+      console.log("CHAT:   ",members.id);
+
+      
+
+/*
+      if(!members.id){
+        //Es la id del chat que es tambien la del documento
+        var newMemberRef = db.collection("members").doc();
+
+        console.log("DOCID:  ",newMemberRef.id);
+
+
+        console.log("uslog:  ",usrlogedID);
+        console.log("usrselc:  ",usrSelectedID);
+        //Guarda informacion del chat
+
+        db.collection("members").doc(newMemberRef.id).set({
+        //membersRef.doc(newMemberRef.id).add({
+//        newMemberRef.add({
+          id:newMemberRef.id,
+          members:{usrlogedID,usrSelectedID}
+        }).then(() => {
+        //el usuario no está en la base de datos y lo inserta.
+        console.log('Usuario agregado');
+
+        }).catch((error) => {
+        //el usuario ya está en la base de datos.
+          console.log('Error: ', error);
+        });
+
+        
+      }
+      */
+
+      
+      
+      
+    },
+    
+    sendMessage() {
+      console.log("usrlogedID:  ",usrlogedID);
+      console.log("usrSelectedID;:  ",usrSelectedID);
+      
+      this.saveMessage();
+      
+      //this.checkMembers();
+      
+      //Guarda informacion del chat
+//      db.collection('chats').add({
+      //newChatRef.add({
+        //idChat:newChatRef,
+        //title:"titulo",
+        // /lastMessage:"ultimo mensaje",
+        //createdAt: new Date(),
+
+        // /message: this.message,
+        
+      //}).then(function(docRef){
+        //console.log
+        //this.scrollToBottom();
+//      })
+
+      //Guardo el mensaje
+      //Guarda informacion de los miembros participantes del chat
+      //.doc(this.authUser.uid).set({
+        /*
+      db.collection('members').add({
+        title:,
+        lastMessage:
+
+        createdAt: new Date(),
+
+        message: this.message,
+        
+      }).then(()=>{
+        this.scrollToBottom();
+      })
+      */
+
+
+      //Save to firestore
+      /*
+      db.collection('messages').add({
+        idUserAuthoe: this.authUser.uid,
+        author: this.authUser.displayName,
+        message: this.message,
+        createdAt: new Date(),
+        //destinatario: this.contactoSeleccionado,
+        //idDestinatario: this.idContactoSeleccionado
+        
+      }).then(()=>{
+        this.scrollToBottom();
+      })
+      */
+
+    },
+
     saveMessage() {
       //Save to firestore
+
+/*
+      db.collection("members").doc(newMemberRef.id).set({
+          id:newMemberRef.id,
+          members:{usrlogedID,usrSelectedID}
+        }).then(() => {
+        //el usuario no está en la base de datos y lo inserta.
+        console.log('Usuario agregado');
+
+        }).catch((error) => {
+        //el usuario ya está en la base de datos.
+          console.log('Error: ', error);
+        });
+        */
+
       db.collection('chat').add({
         message: this.message,
         createdAt: new Date(),
         author: this.authUser.displayName,
-        idUser: this.authUser.uid,
+        //idUser: this.authUser.uid,
+        idUser: usrlogedID,
         //destinatario: this.contactoSeleccionado,
-        idDestinatario: this.idContactoSeleccionado
+        //idDestinatario: this.idContactoSeleccionado,
+        idDestinatario: usrSelectedID,
+        members:[usrlogedID,usrSelectedID]
         
       }).then(()=>{
         this.scrollToBottom();
@@ -205,18 +352,18 @@ export default {
     recuperarConversacion99NOFUNCIONA(){
 
       var messagesReceived=[];
-      let usrloged = this.authUser.uid;
-      let usrSelected = this.idContactoSeleccionado;
+      //let usrlogedID = this.authUser.uid;
+      //let usrSelectedID = this.idContactoSeleccionado;
 
-      //console.log("logeado: ", usrloged);
-      //console.log("seleccionado: ", usrSelected);
+      //console.log("logeado: ", usrlogedID);
+      //console.log("seleccionado: ", usrSelectedID);
 
 
       const chatRef = db.collection('chat');
 
       //NO funciona solo se puede poner un in por consulta
-      chatRef.where('idUser', 'in', [usrloged, usrSelected])
-      .where('idUser', 'in', [usrloged, usrSelected])
+      chatRef.where('idUser', 'in', [usrlogedID, usrSelectedID])
+      .where('idUser', 'in', [usrlogedID, usrSelectedID])
       .orderBy('createdAt')
       .onSnapshot((querySnapshot)=>{
         let allMessagesReceived=[];
@@ -241,19 +388,19 @@ export default {
     async recuperarConversacion(){
 
       //var messagesReceived=[];
-      let usrloged = this.authUser.uid;
-      let usrSelected = this.idContactoSeleccionado;
+      //let usrlogedID = this.authUser.uid;
+      //let usrSelectedID = this.idContactoSeleccionado;
 
       const chatRef = db.collection('chat');
 
       const messagesSended = chatRef
-      .where("idUser", "==", usrloged)
-      .where("idDestinatario", "==", usrSelected)
+      .where("idUser", "==", usrlogedID)
+      .where("idDestinatario", "==", usrSelectedID)
       .get();
 
       const messagesReceived = chatRef
-      .where("idUser", "==", usrSelected)
-      .where("idDestinatario", "==", usrloged)
+      .where("idUser", "==", usrSelectedID)
+      .where("idDestinatario", "==", usrlogedID)
       .get();
 
       //const [sendedQuerySnapshot, receivedQuerySnapshot] =  Promise.all([
@@ -273,24 +420,22 @@ export default {
       
 
       //var messagesReceived=[];
-      let usrloged = this.authUser.uid;
-      let usrSelected = this.idContactoSeleccionado;
-
-      
+      //let usrlogedID = this.authUser.uid;
+      //let usrSelectedID = this.idContactoSeleccionado;
 
       const chatRef = db.collection('chat');
 
 /*
       const messagesSended = chatRef
-      .where("idUser", "==", usrloged)
-      .where("idDestinatario", "==", usrSelected)
+      .where("idUser", "==", usrlogedID)
+      .where("idDestinatario", "==", usrSelectedID)
       .get();
 */
 
       // /let messagesSended = [];
       chatRef
-      .where("idUser", "==", usrloged)
-      .where("idDestinatario", "==", usrSelected)
+      .where("idUser", "==", usrlogedID)
+      .where("idDestinatario", "==", usrSelectedID)
       .onSnapshot((querySnapshot) => {
         let allMessagesSended = [];
         querySnapshot.forEach((doc) => {
@@ -305,15 +450,15 @@ export default {
       
       /*
       const messagesReceived = chatRef
-      .where("idUser", "==", usrSelected)
-      .where("idDestinatario", "==", usrloged)
+      .where("idUser", "==", usrSelectedID)
+      .where("idDestinatario", "==", usrlogedID)
       .get();
       */
 
       //var messagesReceived = [];
       chatRef
-      .where("idUser", "==", usrSelected)
-      .where("idDestinatario", "==", usrloged)
+      .where("idUser", "==", usrSelectedID)
+      .where("idDestinatario", "==", usrlogedID)
       .onSnapshot((querySnapshot) => {
         let allMessagesReceived = [];
         querySnapshot.forEach((doc) => {
@@ -387,9 +532,81 @@ export default {
 
     },
 
+    recuperarMENSAJESCONARRAY(){
+
+      const chatRef = db.collection('chat');
+      //console.log("recuperarMENSAJESCONARRAY:  ");
+      //console.log("usrlogedID:  ",usrlogedID);
+      chatRef
+      //.where("idUser", "==", usrlogedID)
+      //.where("idDestinatario", "==", usrlogedID)
+      .where('members', 'in', [[usrSelectedID,usrlogedID],[usrlogedID,usrSelectedID]])
+      //.orderBy('createdAt')
+      .onSnapshot((querySnapshot) => {
+        let allMessages = [];
+        querySnapshot.forEach((doc) => {
+          allMessages.push(doc.data())
+          //console.log("mensaje:  ",doc.data())
+        })
+
+        //console.log("MESNAJES:  ",allMessagesReceived);
+
+        allMessages.sort(function (a, b) {
+          if( a.createdAt > b.createdAt){
+            return 1;
+          }
+          if( a.createdAt < b.createdAt){
+            return -1;
+          }
+          return 0;
+
+        });
+        
+        this.messages=allMessages;
+        
+        //this.messages = allMessagesReceived;
+
+        //console.log("MESNAJES 2  :  ",messagesReceived);
+        
+        setTimeout(()=>{
+          this.scrollToBottom();
+        },1000);
+        
+      })
+      
+/*
+      db.collection('chat').orderBy('createdAt').onSnapshot((querySnapshot)=>{
+        let allMessages=[];
+        querySnapshot.forEach(doc=>{
+          allMessages.push(doc.data())
+        }) 
+        this.messages=allMessages;
+
+        setTimeout(()=>{
+          this.scrollToBottom();
+        },1000);
+      })
+
+      */
+    },
+
     selectUser(selectedUID){
+      //este primero es neceasrio para cambiar de color cuando se selecciona el usuario
       this.idContactoSeleccionado = selectedUID;
-      this.repetirCadaSegundo();
+
+      usrSelectedID = selectedUID;
+      //console.log("this.idContactoSeleccionado:  ",this.idContactoSeleccionado);
+      // /console.log("usrSelectedID:  ",usrSelectedID);
+
+
+      this.recuperarMENSAJESCONARRAY();
+
+
+      //ESTE FUNCIONA PERO HACE MUCHAS 50K consultas en menos de 20min(ULTIMA OPCION)
+      //this.repetirCadaSegundo();
+
+
+      
     },
 
     mensaje(){
@@ -413,6 +630,7 @@ export default {
     firebase.auth().onAuthStateChanged(user=>{
       if(user){
         this.authUser=user;
+        usrlogedID = this.authUser.uid;
         //this.revisarExistenciaUsuario();
         this.checkUser();
       }else{
