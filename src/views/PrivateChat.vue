@@ -2,7 +2,7 @@
 <div class="container">
 <h3 class=" text-center">Mensajes</h3>
 
-
+<!--LOGOUT-->
 <div class="">
   <button @click="logout" class="exit_btn" type="button"><i class="fa " aria-hidden="true">SALIR</i></button>
 </div>
@@ -18,13 +18,13 @@
           </div>
 
           <div class="inbox_chat">
-
             <div v-for="user in users" :key="user.id">
               <div :class="[idContactoSeleccionado==user.idUser?'active_chat':'']">
                 <div class="chat_list ">
                   <a @click="selectUser(user.idUser)">
                   <div class="chat_people">
                     <div class="chat_ib">
+                      <div :class="[user.active==true?['status','active']:['status','inactive']]"></div>
                       <h5>{{user.userName}}</h5>
                     </div>
                   </div>
@@ -32,7 +32,6 @@
                 </div>
               </div>
             </div>
-            
           </div>
         </div>
 
@@ -57,12 +56,12 @@
           </div>
 
           <!--Escribir y mandar mensaje-->
-          <!--PARA OCULTAR SI NO SE HA SELECCIONADO
-          <div :class="[message.author==authUser.displayName?'sent_msg':'received_msg']">-->
-          <div class="type_msg">
-            <div class="input_msg_write">
-              <input @keyup.enter="sendMessage" v-model="message" type="text" class="write_msg" placeholder="Escribe un mensaje" />
-              <button @click="sendMessage" class="msg_send_btn" type="button"><i class="fa fa-paper-plane-o" aria-hidden="true">►</i></button>
+          <div :class="[!idContactoSeleccionado?'hide':'show']">
+            <div class="type_msg">
+              <div class="input_msg_write">
+                <input @keyup.enter="sendMessage" v-model="message" type="text" class="write_msg" placeholder="Escribe un mensaje" />
+                <button @click="sendMessage" class="msg_send_btn" type="button"><i class="fa fa-paper-plane-o" aria-hidden="true">►</i></button>
+              </div>
             </div>
           </div>
         </div>
@@ -79,6 +78,8 @@ import firebase from 'firebase'
 
 let usrlogedID = {};
 let usrSelectedID = {};
+
+let unsubscribeListenerMSG = {};
 
 export default {
   name: 'PrivateChat',
@@ -99,7 +100,7 @@ export default {
         users:[],
         destinatario:{},
         idDestinatario: {},
-        idContactoSeleccionado:{},
+        idContactoSeleccionado:null,
         contactoSeleccionado:{},
      }
   },
@@ -112,13 +113,16 @@ export default {
     logout(){
       firebase.auth().signOut().then(() => {
         // Sign-out successful.
+        //Cambia el estado del usuario logeado como inactivo
+        this.setUserInactive();
       }).catch((error) => {
         // An error happened.
       });
     },
 
-    /// usuarios
+    /// USUARIOS
     checkUser(){
+      //console.log("checkUser");
       //REvisa y agrega el usuario logeado a la BD
       var docRef =  db.collection("users").doc(this.authUser.uid);
       docRef.get().then((doc) => {
@@ -133,29 +137,30 @@ export default {
     },
 
     saveUser(){
-      //Save to firestore
+      //console.log("saveUser");
       db.collection("users").doc(this.authUser.uid).set({
         idUser: this.authUser.uid,
         userName: this.authUser.displayName,
         groups: {},
-        registeredAt: new Date()
-        
+        registeredAt: new Date(),
+        active: true
       }).then(() => {
-        //el usuario no está en la base de datos y lo inserta.
-        //console.log('Usuario agregado');
+        //el usuario no está en la base de datos y fue insertado.
+        // /console.log('Usuario agregado');
 
       }).catch((error) => {
       //el usuario ya está en la base de datos.
+      //console.log("el usuario ya está en la base de datos.");
         console.log('Error: ', error);
       });
     },
 
     fetchUsers(){
+      //console.log("fetchUsers");
       firebase.auth().onAuthStateChanged((user) => {
         if (user) {
           var uid = user.uid;
           //Recupera todos los usuarios excepto el actual
-          //NOTA: Cambiar eL escuchador por un get() seria mejor???
           db.collection('users').where("idUser", "!=", uid)
           .onSnapshot((querySnapshot)=>{
             var allUsers=[];
@@ -171,7 +176,39 @@ export default {
       });
     },
 
+    setUserActive(){
+      //console.log("setUserActive");
+      const usersRef = db.collection("users").doc(usrlogedID);
+      return usersRef.update({
+          active: true
+      })
+      .then(() => {
+          //console.log("Document successfully updated!");
+      })
+      .catch((error) => {
+          // The document probably doesn't exist.
+          console.error("Error updating document: ", error);
+      });
+    },
+
+    setUserInactive(){
+      //console.log("setUserInactive");
+      const usersRef = db.collection("users").doc(this.authUser.uid);
+      //const res = await cityRef.update({active: false});
+      return usersRef.update({
+          active: false
+      })
+      .then(() => {
+          //console.log("Document successfully updated!");
+      })
+      .catch((error) => {
+          // The document probably doesn't exist.
+          console.error("Error updating document: ", error);
+      });
+    },
+
     /// Mensajes
+    //Esto era para probar dividir el documento y hacerlo consumir menos recursos
     checkMembers(){
       //REvisa si el chat con la persona existe existe
       const membersRef = db.collection('members');
@@ -220,8 +257,8 @@ export default {
     },
     
     sendMessage() {
-      console.log("usrlogedID:  ",usrlogedID);
-      console.log("usrSelectedID;:  ",usrSelectedID);
+      //console.log("usrlogedID:  ",usrlogedID);
+      //console.log("usrSelectedID;:  ",usrSelectedID);
       
       this.saveMessage();
       
@@ -264,8 +301,6 @@ export default {
     },
 
     saveMessage() {
-      //Save to firestore
-
       db.collection('chat').add({
         message: this.message,
         createdAt: new Date(),
@@ -273,14 +308,14 @@ export default {
         idUser: usrlogedID,
         idDestinatario: usrSelectedID,
         members:[usrlogedID,usrSelectedID]
-        
       }).then(()=>{
         this.scrollToBottom();
       })
       this.message=null;
     },
   
-    fetchMessages(){
+    //Borrar despues, no se usa, es la fomra mas basica de recuperacion  de todos los mensaje
+    fetchMessages(){ 
       db.collection('chat').orderBy('createdAt').onSnapshot((querySnapshot)=>{
         let allMessages=[];
         querySnapshot.forEach(doc=>{
@@ -297,6 +332,7 @@ export default {
     recuperarMensajes(){
       const chatRef = db.collection('chat');
       
+      this.unsubscribeListenerMSG = 
       chatRef
       .where('members', 'in', [[usrSelectedID,usrlogedID],[usrlogedID,usrSelectedID]])
       .onSnapshot((querySnapshot) => {
@@ -305,6 +341,7 @@ export default {
           allMessages.push(doc.data());
         })
 
+        //Ordena los mensajes en base a las fechas
         allMessages.sort(function (a, b) {
           if( a.createdAt > b.createdAt){
             return 1;
@@ -319,43 +356,76 @@ export default {
         
         setTimeout(()=>{
           this.scrollToBottom();
-        },1000);
+        },100);
         
       })
       
     },
 
     selectUser(selectedUID){
+      //console.log("selectUser");
+      
       //este primero es neceasrio para cambiar de color cuando se selecciona el usuario
       this.idContactoSeleccionado = selectedUID;
 
       usrSelectedID = selectedUID;
 
+      //console.log("EL PRIMERO DEBERIA ESTAR VACIO");
+      //console.log("this.unsubscribeListenerMSG:  ", this.unsubscribeListenerMSG);
+
+      //LO siguiente es para que no haya tantos escuchadores activos
+      if(this.unsubscribeListenerMSG){
+        //console.log("HAY UN ESCUCHA Y VA A ELIMINAR");
+        // /console.log("this.unsubscribeListenerMSG:  ", this.unsubscribeListenerMSG);
+        this.unsubscribeListenerMSG();
+        this.unsubscribeListenerMSG = {}
+      }
+
+      // /console.log("NO HAY ESCUCHAS ACTIVOS");
+      // /console.log("this.unsubscribeListenerMSG:  ", this.unsubscribeListenerMSG);
       this.recuperarMensajes();
+      //console.log("ESCUCHA ACTIVADO");
+      //console.log("this.unsubscribeListenerMSG:  ", this.unsubscribeListenerMSG);      
     },
     
   },
+
   created(){
-    
+    //console.log("CREATED");
     firebase.auth().onAuthStateChanged(user=>{
       if(user){
         this.authUser=user;
         usrlogedID = this.authUser.uid;
+        //Revisa si tengo guardado el usuario logeado en la BD
         this.checkUser();
+        //Pone el estado del usuario como activo
+        this.setUserActive();
+        
       }else{
+        //console.log("ESTE MENSAJE SE VE CUANDO SALE");
         this.authUser={}
       }
     })
-    //this.fetchMessages();
+    //this.fetchMessages(); //Borrar despues
+
+    //Recupera todos los usuarios
     this.fetchUsers();
   },
+
   beforeRouteEnter(to,from,next){
     next(vm=>{
+      //Este listener es necesario para que detecte si el usuario no esta logeado
+      // o se deslogeo y  regrese a la pagina de login
       firebase.auth().onAuthStateChanged(user=>{
         if(user){
           next();
         }else{
-          vm.$router.push('/login')
+
+        setTimeout(()=>{
+          vm.$router.push('/login');
+          // Cierra todas las conexiones abiertas
+          location.reload();
+        },500);
         }
       })
       
@@ -520,4 +590,29 @@ img{ max-width:100%;}
   height: 516px;
   overflow-y: auto;
 }
+
+
+/*Seccion de Estado si esta activo o inactivo*/
+.status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  float: left;
+}
+.active {
+  background: lightgreen;
+}
+.inactive {
+  background: lightgray;
+}
+
+/*Sección para ocultar o mostrar input para escribir mensaje */
+.hide{
+  display: none;
+}
+.show{
+  display: block;
+}
+
 </style>

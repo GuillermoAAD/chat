@@ -13,9 +13,10 @@
     methods:{
       login(){
         var provider = new firebase.auth.GoogleAuthProvider();
-        provider.addScope('https://www.googleapis.com/auth/contacts.readonly');
 
-        firebase.auth().signInWithPopup(provider).then((result) => {
+        firebase.auth()
+          .signInWithPopup(provider)
+          .then((result) => {
           /** @type {firebase.auth.OAuthCredential} */
           var credential = result.credential;
 
@@ -28,6 +29,10 @@
           //Guardar los datos del usuario en la coleccion users
 
           this.$router.push('/');
+          //this.$router.push('/').catch(()=>{});
+          //if (this.$router.path != '/login') {
+            //this.$router.push('/login')
+          //}
 
         }).catch((error) => {
           // Handle Errors here.
