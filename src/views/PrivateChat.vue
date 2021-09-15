@@ -26,6 +26,7 @@
                     <div class="chat_ib">
                       <div :class="[user.active==true?['status','active']:['status','inactive']]"></div>
                       <h5>{{user.userName}}</h5>
+                      <h5>{{user.phoneNumber}}</h5>
                     </div>
                   </div>
                   </a>
@@ -39,8 +40,12 @@
         <div class="mesgs">
           <div class="msg_history">
             <div v-for="message in messages" :key="message.id">
+              <!--
               <div :class="[message.author==authUser.displayName?'outgoing_msg':'incoming_msg']">
                 <div :class="[message.author==authUser.displayName?'sent_msg':'received_msg']">
+                  -->
+              <div :class="[message.idUser==authUser.uid?'outgoing_msg':'incoming_msg']">
+                <div :class="[message.idUser==authUser.uid?'sent_msg':'received_msg']">
                   <div class="received_withd_msg">
                     <span class="time_date">
                       {{message.author}}
@@ -59,8 +64,8 @@
           <div :class="[!idContactoSeleccionado?'hide':'show']">
             <div class="type_msg">
               <div class="input_msg_write">
-                <input @keyup.enter="sendMessage" v-model="message" type="text" class="write_msg" placeholder="Escribe un mensaje" />
-                <button @click="sendMessage" class="msg_send_btn" type="button"><i class="fa fa-paper-plane-o" aria-hidden="true">►</i></button>
+                  <input @keyup.enter="sendMessage" v-model="message" type="text" class="write_msg" placeholder="Escribe un mensaje"/>
+                  <button @click="sendMessage" class="msg_send_btn" type="button"><i class="fa fa-paper-plane-o" aria-hidden="true">►</i></button>
               </div>
             </div>
           </div>
@@ -76,8 +81,10 @@
 
 import firebase from 'firebase'
 
-let usrlogedID = {};
-let usrSelectedID = {};
+let usrlogedID = null;
+let usrSelectedID = null;
+let idSelectedChat = null;
+
 
 let unsubscribeListenerMSG = {};
 
@@ -95,13 +102,16 @@ export default {
 
         idUser:{},
         userName: {},
-
+        phoneNumber:null,
 
         users:[],
         destinatario:{},
         idDestinatario: {},
         idContactoSeleccionado:null,
+        
         contactoSeleccionado:{},
+
+        groups:{},
      }
   },
   methods: {
@@ -111,10 +121,10 @@ export default {
     },
 
     logout(){
+      //Cambia el estado del usuario logeado como inactivo
+      this.setUserInactive();
       firebase.auth().signOut().then(() => {
         // Sign-out successful.
-        //Cambia el estado del usuario logeado como inactivo
-        this.setUserInactive();
       }).catch((error) => {
         // An error happened.
       });
@@ -141,9 +151,11 @@ export default {
       db.collection("users").doc(this.authUser.uid).set({
         idUser: this.authUser.uid,
         userName: this.authUser.displayName,
-        groups: {},
-        registeredAt: new Date(),
-        active: true
+        //registeredAt: new Date(),
+        registeredAt: firebase.firestore.FieldValue.serverTimestamp(),
+        active: true,
+        phoneNumber: this.authUser.phoneNumber,
+        groups: {}
       }).then(() => {
         //el usuario no está en la base de datos y fue insertado.
         // /console.log('Usuario agregado');
@@ -186,8 +198,8 @@ export default {
           //console.log("Document successfully updated!");
       })
       .catch((error) => {
-          // The document probably doesn't exist.
-          console.error("Error updating document: ", error);
+        // The document probably doesn't exist.
+        console.error("Error updating document: ", error);
       });
     },
 
@@ -195,6 +207,8 @@ export default {
       //console.log("setUserInactive");
       const usersRef = db.collection("users").doc(this.authUser.uid);
       //const res = await cityRef.update({active: false});
+      //usersRef.update({active: false});
+
       return usersRef.update({
           active: false
       })
@@ -208,102 +222,23 @@ export default {
     },
 
     /// Mensajes
-    //Esto era para probar dividir el documento y hacerlo consumir menos recursos
-    checkMembers(){
-      //REvisa si el chat con la persona existe existe
-      const membersRef = db.collection('members');
-
-      let members = membersRef
-      .where('members', 'in', [[usrlogedID,usrSelectedID]])
-      .get();
-
-      console.log("CHAT:   ",members.id);
-
-/*
-      //Esto era para probar dividir el documento y hacerlo consumir menos recursos
-
-      if(!members.id){
-        //Es la id del chat que es tambien la del documento
-        var newMemberRef = db.collection("members").doc();
-
-        console.log("DOCID:  ",newMemberRef.id);
-
-
-        console.log("uslog:  ",usrlogedID);
-        console.log("usrselc:  ",usrSelectedID);
-        //Guarda informacion del chat
-
-        db.collection("members").doc(newMemberRef.id).set({
-        //membersRef.doc(newMemberRef.id).add({
-//        newMemberRef.add({
-          id:newMemberRef.id,
-          members:{usrlogedID,usrSelectedID}
-        }).then(() => {
-        //el usuario no está en la base de datos y lo inserta.
-        console.log('Usuario agregado');
-
-        }).catch((error) => {
-        //el usuario ya está en la base de datos.
-          console.log('Error: ', error);
-        });
-
-        
-      }
-      */
-
-      
-      
-      
-    },
     
     sendMessage() {
       //console.log("usrlogedID:  ",usrlogedID);
       //console.log("usrSelectedID;:  ",usrSelectedID);
-      
-      this.saveMessage();
-      
 
-      //TODO lo comentado  era para probar dividir el documento y hacerlo consumi menos recursos
-      //this.checkMembers();
-      
-      //Guarda informacion del chat
-//      db.collection('chats').add({
-      //newChatRef.add({
-        //idChat:newChatRef,
-        //title:"titulo",
-        // /lastMessage:"ultimo mensaje",
-        //createdAt: new Date(),
-
-        // /message: this.message,
-        
-      //}).then(function(docRef){
-        //console.log
-        //this.scrollToBottom();
-//      })
-
-      //Guardo el mensaje
-      //Guarda informacion de los miembros participantes del chat
-      //.doc(this.authUser.uid).set({
-        /*
-      db.collection('members').add({
-        title:,
-        lastMessage:
-
-        createdAt: new Date(),
-
-        message: this.message,
-        
-      }).then(()=>{
-        this.scrollToBottom();
-      })
-      */
-
+      if(this.message != null) {
+        //this.saveMessage();
+        //console.log("idSelectedChat:  ",idSelectedChat);
+        this.saveMessageNewVersion();
+      }
     },
 
-    saveMessage() {
+    saveMessage() { ///YA NO SE VA A USAR,BORRAR
       db.collection('chat').add({
         message: this.message,
-        createdAt: new Date(),
+        //createdAt: new Date(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         author: this.authUser.displayName,
         idUser: usrlogedID,
         idDestinatario: usrSelectedID,
@@ -313,6 +248,25 @@ export default {
       })
       this.message=null;
     },
+    
+
+    saveMessageNewVersion() {
+     //console.log("idSelectedChat:  ",idSelectedChat);
+
+      db.collection('chats').doc(idSelectedChat).collection('messages').doc().set({
+        message: this.message,
+        createdAt: new Date(),
+        //createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        author: this.authUser.displayName,
+        idUser: usrlogedID,
+        
+      }).then(()=>{
+        this.scrollToBottom();
+      })
+      this.message=null;
+    },
+
+
   
     //Borrar despues, no se usa, es la fomra mas basica de recuperacion  de todos los mensaje
     fetchMessages(){ 
@@ -329,12 +283,13 @@ export default {
       })
     },
     
-    recuperarMensajes(){
+    recuperarMensajes(){ ///YA NO SE VA A USAR
       const chatRef = db.collection('chat');
       
       this.unsubscribeListenerMSG = 
       chatRef
       .where('members', 'in', [[usrSelectedID,usrlogedID],[usrlogedID,usrSelectedID]])
+      //.limit(3)
       .onSnapshot((querySnapshot) => {
         let allMessages = [];
         querySnapshot.forEach((doc) => {
@@ -362,32 +317,185 @@ export default {
       
     },
 
+
+    recuperarMensajesNewVersion(){
+      //console.log("recuperarMensajesNewVersion");
+      //console.log("idSelectedChat:  ",idSelectedChat);
+
+      const chatRef = db.collection('chats').doc(idSelectedChat).collection('messages');
+      
+      this.unsubscribeListenerMSG = 
+      chatRef
+      .orderBy("createdAt")
+      //.limit(5)
+      .onSnapshot((querySnapshot) => {
+        let allMessages = [];
+        querySnapshot.forEach((doc) => {
+          allMessages.push(doc.data());
+        })
+        
+        this.messages=allMessages;
+        
+        setTimeout(()=>{
+          this.scrollToBottom();
+        },100);
+      })
+    },
+
     selectUser(selectedUID){
       //console.log("selectUser");
+
+      idSelectedChat = null;
       
       //este primero es neceasrio para cambiar de color cuando se selecciona el usuario
       this.idContactoSeleccionado = selectedUID;
 
-      usrSelectedID = selectedUID;
 
-      //console.log("EL PRIMERO DEBERIA ESTAR VACIO");
-      //console.log("this.unsubscribeListenerMSG:  ", this.unsubscribeListenerMSG);
+      usrSelectedID = selectedUID;
 
       //LO siguiente es para que no haya tantos escuchadores activos
       if(this.unsubscribeListenerMSG){
-        //console.log("HAY UN ESCUCHA Y VA A ELIMINAR");
-        // /console.log("this.unsubscribeListenerMSG:  ", this.unsubscribeListenerMSG);
         this.unsubscribeListenerMSG();
-        this.unsubscribeListenerMSG = {}
+        this.unsubscribeListenerMSG = {};
+        //console.log("SE DETUVO A ESCUCHA");
       }
 
+      //console.log(usrSelectedID);
+      //Revisa si han hablado el usuario logeado y el seleccionado
+      this.checkGroupBetweenTwo();
       // /console.log("NO HAY ESCUCHAS ACTIVOS");
       // /console.log("this.unsubscribeListenerMSG:  ", this.unsubscribeListenerMSG);
-      this.recuperarMensajes();
+      
+      //this.recuperarMensajes();
+      //this.recuperarMensajesNewVersion();
+
       //console.log("ESCUCHA ACTIVADO");
       //console.log("this.unsubscribeListenerMSG:  ", this.unsubscribeListenerMSG);      
     },
-    
+
+
+    //GRUPOS
+
+    checkUser(){
+      //console.log("checkUser");
+      //REvisa y agrega el usuario logeado a la BD
+      var docRef =  db.collection("users").doc(this.authUser.uid);
+      docRef.get().then((doc) => {
+        if (doc.exists) {
+          //console.log('Usuario ya existe');
+        } else {
+          this.saveUser();
+        }
+      }).catch((error) => {
+        //el usuario ya está en la base de datos.
+      });
+    },
+
+    checkGroupBetweenTwo(){
+      //Revisa si han hablado el usuario logeado y el seleccionado
+      //console.log("checkGroupBetweenTwo");
+
+      var countGrupos = 0;
+
+      var myMapMembers = {
+          [usrlogedID]: true,
+          [usrSelectedID]: true
+        };
+      
+      //console.log("myMapMembers:  ",myMapMembers);
+      //console.log(idSelectedChat);
+
+      db.collection("groups")
+      .where('members', '==', myMapMembers)
+      .get()
+      .then((querySnapshot) => {
+        
+        querySnapshot.forEach((doc) => {
+            countGrupos++;
+            idSelectedChat = doc.data().id_group;
+            //console.log(doc.id, " => ", doc.data());
+        });
+        
+        //Si no hay grupo entre dos usuarios los agrega a uno nuevo
+        //console.log("countGrupos:  ",countGrupos);
+        //console.log("idSelectedChat:  ",idSelectedChat);
+        if(countGrupos == 0){
+          this.saveGroupBetweenTwo();
+        }
+        this.recuperarMensajesNewVersion();
+      })
+      .catch((error) => {
+        console.log("Error getting documents: ", error);
+      });
+      
+
+    },
+
+    generateDocID(collectionName){
+      let ref = db.collection(collectionName).doc();
+      let id_group = ref.id;
+
+      return id_group;
+    },
+
+    saveGroupBetweenTwo() {
+      //console.log("saveGroupBetweenTwo");
+      
+      //let ref = db.collection("groups").doc();
+      //let id_group = ref.id;
+      let id_group = this.generateDocID("groups");
+
+      idSelectedChat = id_group;
+
+      //console.log("id_group:  ", id_group);
+
+      db.collection("groups").doc(id_group).set({
+      //db.collection("groups").add({
+        id_group: id_group,
+        name: id_group,
+        //createdAt: new Date(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        members: {
+          [usrlogedID]: true,
+          [usrSelectedID]: true
+        }
+      }).then(() => {
+        //el usuario no está en la base de datos y fue insertado.
+        // /console.log('Usuario agregado');
+
+      }).catch((error) => {
+      //el usuario ya está en la base de datos.
+      //console.log("el usuario ya está en la base de datos.");
+        console.log('Error: ', error);
+      });
+
+      //Agrega el id del grupo al mapa grupos de cada usuario
+      this.addGroupToUser(usrlogedID, id_group);
+      this.addGroupToUser(usrSelectedID, id_group);
+      
+    },
+
+
+    addGroupToUser(id_user, id_group){    
+      //console.log("addGroupToUser");
+      //console.log("id_group:  ",id_group);
+
+      let newGroup = "groups." + id_group;
+
+      const usersRef = db.collection("users").doc(id_user);
+      return usersRef.update({
+        [newGroup]: true,
+      })
+      .then(() => {
+          //console.log("Document successfully updated!");
+      })
+      .catch((error) => {
+          // The document probably doesn't exist.
+          console.error("Error updating document: ", error);
+      });
+
+    },
+
   },
 
   created(){
@@ -433,6 +541,24 @@ export default {
   }
 
 }
+
+/*
+ESTRUCTURA BD
+
+  // Chats contains only meta info about each conversation
+  // stored under the chats's unique ID
+  "chats": {
+    "one": {
+      "title": "Historical Tech Pioneers",
+      "lastMessage": "ghopper: Relay malfunction found. Cause: moth.",
+      "timestamp": 1459361875666
+    },
+    "two": { ... },
+    "three": { ... }
+  },
+}
+*/
+
 </script>
 
 
