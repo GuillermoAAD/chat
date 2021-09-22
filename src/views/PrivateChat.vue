@@ -1,10 +1,11 @@
 <template>
+
 <div class="container">
 <h3 class=" text-center">Mensajes</h3>
 
 <!--LOGOUT-->
 <div class="">
-  <button @click="logout" class="exit_btn" type="button"><i class="fa " aria-hidden="true">SALIR</i></button>
+  <button @click="logout" class="exit_btn" type="button"><i aria-hidden="true">SALIR</i></button>
 </div>
 
 <div class="messaging">
@@ -13,37 +14,73 @@
         <div class="inbox_people">
           <div class="headind_srch">
             <div class="recent_heading">
-              <h4>Contactos</h4>
-            </div>
-          </div>
-
-          <div class="inbox_chat">
-            <div v-for="user in users" :key="user.id">
-              <div :class="[idContactoSeleccionado==user.idUser?'active_chat':'']">
-                <div class="chat_list ">
-                  <a @click="selectUser(user.idUser)">
-                  <div class="chat_people">
-                    <div class="chat_ib">
-                      <div :class="[user.active==true?['status','active']:['status','inactive']]"></div>
-                      <h5>{{user.userName}}</h5>
-                      <h5>{{user.phoneNumber}}</h5>
-                    </div>
-                  </div>
-                  </a>
+              <div id="showMenuChats" class="hide">
+                <div class="left">
+                  <button @click="showChats"><i class="fas fa-arrow-left"></i></button>
+                </div>
+                <div class="right">Nuevo chat</div>
+              </div>
+              <div id="showMenuContacts" class="show">
+                <div class="left">Chats</div>
+                <div class="right">
+                  <button @click="showContacts"><i class="fas fa-address-book"></i></button>
                 </div>
               </div>
             </div>
           </div>
+
+          <div class="inbox_chat">
+            <div id="contacts" class="hide">
+              <div  v-for="user in users" :key="user.id">
+                <!--<div :class="[idContactoSeleccionado==user.idUser?'active_chat':'']">-->
+                  <a @click="selectUser(user.idUser ,user)">
+                    <div class="chat_list ">
+                      <div class="chat_people">
+                        <div class="chat_ib">
+                          <div :class="[user.active==true?['status','active']:['status','inactive']]"></div>
+                          <h5>{{user.userName}}</h5>
+                          <h5>{{user.phoneNumber}}</h5>
+                        </div>
+                      </div>
+                    </div>
+                  </a>
+                <!--</div>-->
+              </div>
+            </div>
+
+            <div id="chats" class="show">
+              <!--<div  v-for="group in groups" :key="groups.id">-->
+                <div  v-for="group in groups" :key="group.id">
+                
+                <div :class="[idChatSeleccionado==group.id_group?'active_chat':'']">
+                  <a @click="selectChat(group.id_group)">
+                    <div class="chat_list ">
+                      <div class="chat_people">
+                        <div class="chat_ib">
+                          <!--<div :class="[user.active==true?['status','active']:['status','inactive']]"></div>-->
+                          <!--<h5>{{group.id_group}}</h5>-->
+                          <div :class="[checkIfIsRead(group.read)?'hide':'show']">
+                            <i class="fas fa-envelope"></i>
+                          </div>
+                          
+                          <h5>{{chatTitulo(group.id_group)}}</h5>
+                        </div>
+                      </div>
+                    </div>
+                  </a>
+                </div>
+                
+              </div>
+            </div>
+
+          </div>
         </div>
+
 
         <!--CHAT-->
         <div class="mesgs">
           <div class="msg_history">
             <div v-for="message in messages" :key="message.id">
-              <!--
-              <div :class="[message.author==authUser.displayName?'outgoing_msg':'incoming_msg']">
-                <div :class="[message.author==authUser.displayName?'sent_msg':'received_msg']">
-                  -->
               <div :class="[message.idUser==authUser.uid?'outgoing_msg':'incoming_msg']">
                 <div :class="[message.idUser==authUser.uid?'sent_msg':'received_msg']">
                   <div class="received_withd_msg">
@@ -52,28 +89,26 @@
                     </span>
                     <p>{{message.message}}</p>
                     <span class="time_date">
-                      {{message.createdAt.toDate().toLocaleString()}}
+                      {{message.timestamp.toDate().toLocaleString()}}
                     </span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-
+          
           <!--Escribir y mandar mensaje-->
-          <div :class="[!idContactoSeleccionado?'hide':'show']">
+          <!--<div :class="[!idContactoSeleccionado?'hide':'show']">-->
+            <div id="inputMessages" :class="[!idContactoSeleccionado?'hide':'show']">
             <div class="type_msg">
               <div class="input_msg_write">
                   <input @keyup.enter="sendMessage" v-model="message" type="text" class="write_msg" placeholder="Escribe un mensaje"/>
-                  <button @click="sendMessage" class="msg_send_btn" type="button"><i class="fa fa-paper-plane-o" aria-hidden="true">►</i></button>
+                  <button @click="sendMessage" class="msg_send_btn" type="button"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
               </div>
             </div>
           </div>
         </div>
       </div>
-      
-      <!--<p class="text-center top_spac"> Design by <a target="_blank" href="https://www.linkedin.com/in/sunil-rajput-nattho-singh/">Sunil Rajput</a></p>-->
-      
     </div></div>
 </template>
 
@@ -81,12 +116,18 @@
 
 import firebase from 'firebase'
 
+//let usrloged = null;
 let usrlogedID = null;
+let usrlogedName = null;
+let usrSelected = null;
 let usrSelectedID = null;
+let usrSelectedName = null;
 let idSelectedChat = null;
+let usrloged = null;
+let usrlogedGroups = null;
 
 
-let unsubscribeListenerMSG = {};
+var unsubscribeListenerMSG = null;
 
 export default {
   name: 'PrivateChat',
@@ -105,13 +146,15 @@ export default {
         phoneNumber:null,
 
         users:[],
-        destinatario:{},
-        idDestinatario: {},
         idContactoSeleccionado:null,
-        
+        idChatSeleccionado:null,
+                
         contactoSeleccionado:{},
 
-        groups:{},
+        myGroups:[],
+        chats:{},
+        groups:[],
+
      }
   },
   methods: {
@@ -128,6 +171,39 @@ export default {
       }).catch((error) => {
         // An error happened.
       });
+    },
+
+    showChats(){
+      let divShowMenuChats = document.getElementById("showMenuChats");
+      let divShowMenuContacts = document.getElementById("showMenuContacts");
+      let divContacts = document.getElementById("contacts");
+      let divChats = document.getElementById("chats");
+
+      if (divShowMenuChats.style.display != "none") {
+        divShowMenuChats.style.display = "none";
+        divShowMenuContacts.style.display = "inline";
+        divContacts.style.display = "none";
+        divChats.style.display = "inline";
+      }
+    },
+
+    showContacts(){
+      let divShowMenuChats = document.getElementById("showMenuChats");
+      let divShowMenuContacts = document.getElementById("showMenuContacts");
+      let divContacts = document.getElementById("contacts");
+      let divChats = document.getElementById("chats");
+
+      if (divShowMenuChats.style.display != "inline") {
+        divShowMenuChats.style.display = "inline";
+        divShowMenuContacts.style.display = "none";
+        divContacts.style.display = "inline";
+        divChats.style.display = "none";
+      }
+    },
+
+    showInputMessages(){
+      let divInputMessages = document.getElementById("inputMessages");
+      divInputMessages.style.display = "inline";
     },
 
     /// USUARIOS
@@ -173,7 +249,9 @@ export default {
         if (user) {
           var uid = user.uid;
           //Recupera todos los usuarios excepto el actual
-          db.collection('users').where("idUser", "!=", uid)
+          db.collection('users')
+          .where("idUser", "!=", uid)
+          .orderBy("idUser")
           .onSnapshot((querySnapshot)=>{
             var allUsers=[];
             querySnapshot.forEach((doc) => {
@@ -206,9 +284,6 @@ export default {
     setUserInactive(){
       //console.log("setUserInactive");
       const usersRef = db.collection("users").doc(this.authUser.uid);
-      //const res = await cityRef.update({active: false});
-      //usersRef.update({active: false});
-
       return usersRef.update({
           active: false
       })
@@ -224,110 +299,44 @@ export default {
     /// Mensajes
     
     sendMessage() {
-      //console.log("usrlogedID:  ",usrlogedID);
-      //console.log("usrSelectedID;:  ",usrSelectedID);
-
       if(this.message != null) {
-        //this.saveMessage();
-        //console.log("idSelectedChat:  ",idSelectedChat);
         this.saveMessageNewVersion();
       }
-    },
-
-    saveMessage() { ///YA NO SE VA A USAR,BORRAR
-      db.collection('chat').add({
-        message: this.message,
-        //createdAt: new Date(),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        author: this.authUser.displayName,
-        idUser: usrlogedID,
-        idDestinatario: usrSelectedID,
-        members:[usrlogedID,usrSelectedID]
-      }).then(()=>{
-        this.scrollToBottom();
-      })
-      this.message=null;
-    },
-    
+    },    
 
     saveMessageNewVersion() {
      //console.log("idSelectedChat:  ",idSelectedChat);
 
-      db.collection('chats').doc(idSelectedChat).collection('messages').doc().set({
+      db.collection('messages').doc(idSelectedChat).collection('messages').doc().set({
         message: this.message,
         createdAt: new Date(),
-        //createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         author: this.authUser.displayName,
         idUser: usrlogedID,
         
       }).then(()=>{
         this.scrollToBottom();
       })
+      
+      let id_group = idSelectedChat;
+      //this.editChatInfo(id_group, this.message);
+      this.editTimestampGroup(id_group, this.message);
+      
       this.message=null;
+
+      this.setOthersAsUnread(usrlogedID, this.idChatSeleccionado);
     },
-
-
-  
-    //Borrar despues, no se usa, es la fomra mas basica de recuperacion  de todos los mensaje
-    fetchMessages(){ 
-      db.collection('chat').orderBy('createdAt').onSnapshot((querySnapshot)=>{
-        let allMessages=[];
-        querySnapshot.forEach(doc=>{
-          allMessages.push(doc.data())
-        }) 
-        this.messages=allMessages;
-
-        setTimeout(()=>{
-          this.scrollToBottom();
-        },1000);
-      })
-    },
-    
-    recuperarMensajes(){ ///YA NO SE VA A USAR
-      const chatRef = db.collection('chat');
-      
-      this.unsubscribeListenerMSG = 
-      chatRef
-      .where('members', 'in', [[usrSelectedID,usrlogedID],[usrlogedID,usrSelectedID]])
-      //.limit(3)
-      .onSnapshot((querySnapshot) => {
-        let allMessages = [];
-        querySnapshot.forEach((doc) => {
-          allMessages.push(doc.data());
-        })
-
-        //Ordena los mensajes en base a las fechas
-        allMessages.sort(function (a, b) {
-          if( a.createdAt > b.createdAt){
-            return 1;
-          }
-          if( a.createdAt < b.createdAt){
-            return -1;
-          }
-          return 0;
-        });
-        
-        this.messages=allMessages;
-        
-        setTimeout(()=>{
-          this.scrollToBottom();
-        },100);
-        
-      })
-      
-    },
-
 
     recuperarMensajesNewVersion(){
       //console.log("recuperarMensajesNewVersion");
       //console.log("idSelectedChat:  ",idSelectedChat);
 
-      const chatRef = db.collection('chats').doc(idSelectedChat).collection('messages');
+      const chatRef = db.collection('messages').doc(idSelectedChat).collection('messages');
       
       this.unsubscribeListenerMSG = 
       chatRef
-      .orderBy("createdAt")
-      //.limit(5)
+      .orderBy("timestamp")
+      //.limit(5) no funciona el limit como quiero, investigar mas
       .onSnapshot((querySnapshot) => {
         let allMessages = [];
         querySnapshot.forEach((doc) => {
@@ -340,37 +349,408 @@ export default {
           this.scrollToBottom();
         },100);
       })
+
+      //console.log("ANTES DE EDITAR LEIDOS");
+      //console.log(this.idChatSeleccionado);
+      // /console.log(usrlogedID);
+      this.setOthersAsUnread(usrlogedID, this.idChatSeleccionado);
+			
     },
 
-    selectUser(selectedUID){
+    //CHATS
+    saveChatInfo(id_group, myMapMembers) {
+      //console.log("saveChatInfo()");
+      //console.log("idSelectedChat:  ",id_group);
+
+      db.collection("chatsInfo").doc(id_group).set({
+        id_group: id_group,
+        lastMessage: "",
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        members: myMapMembers,
+      }).then(() => {
+      }).catch((error) => {
+        console.log('Error: ', error);
+      });
+    },
+
+    /*
+    editChatInfo(id_group, msg){
+      //console.log("editChatInfo");
+      //console.log("id_group:  ",id_group);
+      //console.log("msg:  ",msg);
+
+      const usersRef = db.collection("chatsInfo").doc(id_group);
+      return usersRef.update({
+        lastMessage: msg,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      })
+      .then(() => {
+          //console.log("Document successfully updated!");
+      })
+      .catch((error) => {
+          // The document probably doesn't exist.
+          console.error("Error updating document: ", error);
+      });
+    },
+    */
+
+    /*
+    fetchChatsInfo(){
+      //console.log("fetchChatsInfo");
+      //this.getMyGroups();
+    },
+    */
+
+    /*
+    getMyGroups(){
+      ///la deje pendiente porque creo que seria mejor usar la coleccion de grupos en lugar
+      //console.log("getMyGroups()");
+
+      let grupos = {}
+      db.collection("users").doc(usrlogedID)
+      //.get()
+      //.then((querySnapshot) => {
+      .onSnapshot((querySnapshot) => {
+
+        if(querySnapshot.exists){
+          //let groups = null;
+          
+          if(querySnapshot.data().groups != null){
+            let groups = querySnapshot.data().groups;
+
+            //console.log("groups",groups);
+
+            groups = Object.keys(groups);
+            //console.log("groups",groups);
+            
+            db.collection("chatsInfo")
+            .where("id_group", "in", groups)
+            .get((querySnapshot_1) => { 
+              let allChats = [];               
+              querySnapshot_1.forEach((doc) => {
+                //console.log(doc.id, " => ", doc.data());
+                allChats.push(doc.data());
+              });
+              this.chats=allChats;
+              //console.log("Chats:  ",this.chats);
+            });
+            
+          } else {
+            // /console.log("No hay datos");
+          }
+        }
+            
+      })
+    },
+    */
+
+    /*
+    fetchGroupsBUENO(){
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+          var uid = user.uid;
+          //Recupera todos los grupos del usuario
+          let userDat=db.collection('users')
+          .where("idUser","==", uid).get();
+          //console.log("userDat",userDat);
+          
+          //Recupera todos los grupos del usuario
+          let query="members." + uid;
+          db.collection("groups")
+          .where(query, "==", true)
+          //.orderBy("timestamp","desc")
+          .onSnapshot((querySnapshot)=>{
+            var allGroups=[];
+            querySnapshot.forEach((doc) => {
+              allGroups.push(doc.data());
+
+            });
+
+            allGroups = this.orderGroups(allGroups);
+
+            this.groups=allGroups;
+          });
+        } else {
+          // User is signed out
+          // ...
+        }
+      });
+    },
+    */
+
+    fetchGroups(){
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+          var uid = user.uid;
+          //Recupera todos los grupos del usuario
+          db.collection('users')
+          .where("idUser","==", uid)
+          //.get()
+          //.then((querySnapshot) => {
+          .onSnapshot((querySnapshot)=>{
+            querySnapshot.forEach((doc) => {
+              let myGroups = doc.data().groups;
+              myGroups = Object.keys(myGroups);
+              //console.log("mygroups", myGroups);
+              db.collection("groups")
+              .where("id_group", "in", myGroups)
+              .orderBy("timestamp","desc")
+              .onSnapshot((querySnapshot)=>{
+                var allGroups=[];
+                querySnapshot.forEach((doc) => {
+                  allGroups.push(doc.data());
+                });
+
+                this.groups=allGroups;
+              });
+            })
+          })
+        }
+      })
+    },
+
+    /*
+    orderGroups(allGroups){
+      let m = allGroups.sort(function (a, b) {
+              if( a.timestamp < b.timestamp){
+                return 1;
+              }
+              if( a.timestamp > b.timestamp){
+                return -1;
+              }
+              return 0;
+            });
+
+      return m;
+    },
+    */
+
+    editTimestampGroup(id_group, msg){
+      //console.log("id_group:  ",id_group);
+      //console.log("msg:  ",msg);
+
+      const usersRef = db.collection("groups").doc(id_group);
+      return usersRef.update({
+        lastMessage: msg,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      })
+      .then(() => {
+          //console.log("Document successfully updated!");
+      })
+      .catch((error) => {
+          // The document probably doesn't exist.
+          console.error("Error updating document: ", error);
+      });
+    },
+
+    setOthersAsUnread(usrlogedID, idChatSelected){
+      console.log("setOthersAsUnread");
+
+      //let myGrupo = this.myObjectToMap(this.groups);
+      var myGrupo = this.myObjectToArray(this.groups);
+      console.log(myGrupo);
+      let myGrupo2 = myGrupo.filter(obj => {
+        return obj.id_group === idChatSelected
+      })
+      console.log("myGrupo2",myGrupo2);
+
+      let myGrupo3 = this.myObjectToMap(myGrupo2);
+      console.log("myGrupo3",myGrupo3);
+
+      
+      //this.
+
+    },
+
+    setAsRead(id_user, id_group){    
+      console.log("setAsRead");
+      //console.log("id_group:  ",id_group);
+      let newRead = "read." + id_user;
+
+      const usersRef = db.collection("groups").doc(id_group);
+      return usersRef.update({
+        [newRead]: true, //true significa que ha liedo los mensajes
+      })
+      .then(() => {
+          //console.log("Document successfully updated!");
+      })
+      .catch((error) => {
+          // The document probably doesn't exist.
+          console.error("Error updating document: ", error);
+      });
+    },
+
+    setAsUnread(id_user, id_group){    
+      console.log("setAsUnread");
+      //console.log("id_group:  ",id_group);
+      let newRead = "read." + id_user;
+
+      const usersRef = db.collection("groups").doc(id_group);
+      return usersRef.update({
+        [newRead]: false, //true significa que ha liedo los mensajes
+      })
+      .then(() => {
+          //console.log("Document successfully updated!");
+      })
+      .catch((error) => {
+          // The document probably doesn't exist.
+          console.error("Error updating document: ", error);
+      });
+    },
+
+    checkIfIsRead(read){
+      //read = this.myObjectToArray(read);
+      //myGroups = Object.keys(myGroups);
+      read = this.myObjectToMap(read);
+      //console.log("READ",read);
+      //console.log("logeado",usrlogedID);
+      //console.log("mi estado",read.get(usrlogedID));
+      let isRead = false;
+
+      isRead = read.get(usrlogedID);
+
+      return isRead;
+    },
+
+    myObjectToArray(objectVar){
+      var arrayVar = Object.keys(objectVar).map(key => {
+        return objectVar[key];
+      })
+      return arrayVar;
+    },
+
+    myObjectToMap(objectVar){
+      let keys = Object.keys(objectVar);
+      let map = new Map();
+      for(let i = 0; i < keys.length; i++){
+        //inserting new key value pair inside map
+        map.set(keys[i], objectVar[keys[i]]);
+      };
+      return map;
+    },
+
+    chatTitulo(id_group){
+      //convierto el objeto de objetos en arreglo
+      //var arrayGroups = Object.keys(this.groups).map(key => {
+        //return this.groups[key];
+      //})
+      var arrayGroups = this.myObjectToArray(this.groups);
+      //arrayGroups
+
+
+      //extraigo el grupo actual a mostrar
+      let actualGroup = arrayGroups.find(group => group.id_group === id_group);
+      //console.log("actualGroup",actualGroup);
+
+      let title = actualGroup.name;
+      //console.log("actualGroupName",actualGroup.name);
+
+      if (actualGroup.name == null) {
+        let actualMembers = Object.keys(actualGroup.members);
+        //console.log("actualGroupMembers",actualMembers);
+
+        let idContacto = null;
+
+        for(let member of actualMembers) {
+          if(member != usrlogedID){
+            //en este punto conseguimos el id del contacto
+            idContacto = member;
+          }
+        }
+
+        //ahora a buscar el nombre o telefeono del usuario con el que se tiene la conversacion
+        var arrayUsers = this.myObjectToArray(this.users);
+        //console.log("arrayUsers: ", arrayUsers);
+
+        let actualUser = arrayUsers.find(user => user.idUser === idContacto);
+        //console.log("actualUser: ", actualUser);
+        //console.log("actualUser.userName: ", actualUser.userName);
+        title = actualUser.userName;
+
+        //en caso de que el nombre este vacio pone el numero
+        if(title === null){
+          title = actualUser.phoneNumber;
+        }
+      }
+      
+      return title;
+    },
+
+    selectChat(id_group){
+      this.showInputMessages();
+      this.idChatSeleccionado = id_group;
+      idSelectedChat = id_group;
+      this.stopListener();
+
+      //console.log(idSelectedChat);
+      this.recuperarMensajesNewVersion();//descomentar
+      
+    },
+
+    /*
+    async getUserData(id){
+      var usersRef = db.collection("users").doc(id);
+      let usrrname =null;
+      let userData = await usersRef.get()
+      .then((doc) => {
+        if (doc.exists) {
+          
+          usrrname=doc.data().userName;
+          // /console.log('username: ',usrrname);
+        } else {
+        }
+      }).catch((error) => {
+        //el usuario ya está en la base de datos.
+      });
+
+      //console.log("USERDATA", usrrname);
+      return usrrname;
+    },
+    */
+
+    selectUser(selectedUID, selectedUser){
+      this.showChats();
       //console.log("selectUser");
 
+      //console.log("selectuseridSelectedChat",idSelectedChat);
+      
       idSelectedChat = null;
       
       //este primero es neceasrio para cambiar de color cuando se selecciona el usuario
-      this.idContactoSeleccionado = selectedUID;
+      //this.idContactoSeleccionado = selectedUID;
+      this.idContactoSeleccionado = selectedUser.idUser;
+      
+      //usrSelectedID = selectedUID;
+      usrSelectedID = selectedUser.idUser;
 
-
-      usrSelectedID = selectedUID;
+      usrSelected = selectedUser;
+      //console.log("id: ",usrSelectedID);
+      //console.log("name: ",usrSelected.userName);
+      //console.log("usr: ",usrSelected);
 
       //LO siguiente es para que no haya tantos escuchadores activos
+      this.stopListener();
+      /*
+      if(this.unsubscribeListenerMSG){
+
+        this.unsubscribeListenerMSG();
+        this.unsubscribeListenerMSG = {};
+        //console.log("SE DETUVO A ESCUCHA");
+      }
+      */
+
+      //console.log(usrSelectedID);
+      //Revisa si han hablado el usuario logeado y el seleccionado
+      this.checkGroupBetweenTwo();
+      
+    },
+
+    stopListener(){
       if(this.unsubscribeListenerMSG){
         this.unsubscribeListenerMSG();
         this.unsubscribeListenerMSG = {};
         //console.log("SE DETUVO A ESCUCHA");
       }
-
-      //console.log(usrSelectedID);
-      //Revisa si han hablado el usuario logeado y el seleccionado
-      this.checkGroupBetweenTwo();
-      // /console.log("NO HAY ESCUCHAS ACTIVOS");
-      // /console.log("this.unsubscribeListenerMSG:  ", this.unsubscribeListenerMSG);
-      
-      //this.recuperarMensajes();
-      //this.recuperarMensajesNewVersion();
-
-      //console.log("ESCUCHA ACTIVADO");
-      //console.log("this.unsubscribeListenerMSG:  ", this.unsubscribeListenerMSG);      
     },
 
 
@@ -401,8 +781,6 @@ export default {
           [usrlogedID]: true,
           [usrSelectedID]: true
         };
-      
-      //console.log("myMapMembers:  ",myMapMembers);
       //console.log(idSelectedChat);
 
       db.collection("groups")
@@ -413,6 +791,7 @@ export default {
         querySnapshot.forEach((doc) => {
             countGrupos++;
             idSelectedChat = doc.data().id_group;
+            this.idChatSeleccionado = idSelectedChat;
             //console.log(doc.id, " => ", doc.data());
         });
         
@@ -428,7 +807,6 @@ export default {
         console.log("Error getting documents: ", error);
       });
       
-
     },
 
     generateDocID(collectionName){
@@ -440,41 +818,40 @@ export default {
 
     saveGroupBetweenTwo() {
       //console.log("saveGroupBetweenTwo");
-      
-      //let ref = db.collection("groups").doc();
-      //let id_group = ref.id;
       let id_group = this.generateDocID("groups");
 
       idSelectedChat = id_group;
-
-      //console.log("id_group:  ", id_group);
+      this.idChatSeleccionado = idSelectedChat;
 
       db.collection("groups").doc(id_group).set({
-      //db.collection("groups").add({
         id_group: id_group,
-        name: id_group,
+        //name: id_group,
+        name: null,
         //createdAt: new Date(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         members: {
           [usrlogedID]: true,
           [usrSelectedID]: true
-        }
+        },
+        lastMessage: "",
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
       }).then(() => {
-        //el usuario no está en la base de datos y fue insertado.
-        // /console.log('Usuario agregado');
-
       }).catch((error) => {
-      //el usuario ya está en la base de datos.
-      //console.log("el usuario ya está en la base de datos.");
         console.log('Error: ', error);
       });
+
+      let myMapMembers = {
+          [usrlogedID]: true,
+          [usrSelectedID]: true
+        };
+
+      this.saveChatInfo(id_group, myMapMembers);
 
       //Agrega el id del grupo al mapa grupos de cada usuario
       this.addGroupToUser(usrlogedID, id_group);
       this.addGroupToUser(usrSelectedID, id_group);
       
     },
-
 
     addGroupToUser(id_user, id_group){    
       //console.log("addGroupToUser");
@@ -493,9 +870,7 @@ export default {
           // The document probably doesn't exist.
           console.error("Error updating document: ", error);
       });
-
     },
-
   },
 
   created(){
@@ -504,20 +879,24 @@ export default {
       if(user){
         this.authUser=user;
         usrlogedID = this.authUser.uid;
+        usrlogedName = this.authUser.userName;
         //Revisa si tengo guardado el usuario logeado en la BD
         this.checkUser();
         //Pone el estado del usuario como activo
         this.setUserActive();
+
+        //this.fetchChatsInfo();
         
       }else{
         //console.log("ESTE MENSAJE SE VE CUANDO SALE");
         this.authUser={}
       }
     })
-    //this.fetchMessages(); //Borrar despues
 
     //Recupera todos los usuarios
     this.fetchUsers();
+    this.fetchGroups();
+    
   },
 
   beforeRouteEnter(to,from,next){
@@ -528,36 +907,17 @@ export default {
         if(user){
           next();
         }else{
-
-        setTimeout(()=>{
-          vm.$router.push('/login');
-          // Cierra todas las conexiones abiertas
-          location.reload();
-        },500);
+          setTimeout(()=>{
+            vm.$router.push('/login');
+            // Cierra todas las conexiones abiertas
+            location.reload();
+          },500);
         }
       })
-      
     })
   }
 
 }
-
-/*
-ESTRUCTURA BD
-
-  // Chats contains only meta info about each conversation
-  // stored under the chats's unique ID
-  "chats": {
-    "one": {
-      "title": "Historical Tech Pioneers",
-      "lastMessage": "ghopper: Relay malfunction found. Cause: moth.",
-      "timestamp": 1459361875666
-    },
-    "two": { ... },
-    "three": { ... }
-  },
-}
-*/
 
 </script>
 
@@ -588,7 +948,9 @@ img{ max-width:100%;}
   text-align: right;
   width: 60%;
 }
-.headind_srch{ padding:10px 29px 10px 20px; overflow:hidden; border-bottom:1px solid #c4c4c4;}
+.headind_srch{
+  padding:10px 29px 10px 20px; overflow:hidden; border-bottom:1px solid #c4c4c4;
+}
 
 .recent_heading h4 {
   color: #05728f;
@@ -626,7 +988,9 @@ img{ max-width:100%;}
 }
 .inbox_chat { height: 550px; overflow-y: scroll;}
 
-.active_chat{ background:#ebebeb;}
+.active_chat{ 
+  background:#b6b4b4;
+  }
 
 .incoming_msg_img {
   display: inline-block;
@@ -717,7 +1081,6 @@ img{ max-width:100%;}
   overflow-y: auto;
 }
 
-
 /*Seccion de Estado si esta activo o inactivo*/
 .status {
   width: 10px;
@@ -738,7 +1101,29 @@ img{ max-width:100%;}
   display: none;
 }
 .show{
-  display: block;
+  display: inline;
 }
+
+.left{
+  float: left;
+}
+
+.right{
+  float: right;
+}
+
+#chats div:hover{
+  background:#d8d6d6;
+}
+
+#contacts div:hover{
+  background:#d8d6d6;
+}
+
+#chats, #contacts div:active{
+  background:#b6b4b4;
+}
+
+
 
 </style>
