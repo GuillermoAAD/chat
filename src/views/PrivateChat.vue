@@ -37,9 +37,16 @@
                     <div class="chat_list ">
                       <div class="chat_people">
                         <div class="chat_ib">
+                          <!--
                           <div :class="[user.active==true?['status','active']:['status','inactive']]"></div>
                           <h5>{{user.userName}}</h5>
                           <h5>{{user.phoneNumber}}</h5>
+                          -->
+                          <h5>
+                            <div :class="[user.active==true?['status','active']:['status','inactive']]"></div>
+                            {{user.userName}}
+                            {{user.phoneNumber}}
+                          </h5>
                         </div>
                       </div>
                     </div>
@@ -59,17 +66,17 @@
                         <div class="chat_ib">
                           <!--<div :class="[user.active==true?['status','active']:['status','inactive']]"></div>-->
                           <!--<h5>{{group.id_group}}</h5>-->
-                          <div :class="[checkIfIsRead(group.read)?'hide':'show']">
-                            <i class="fas fa-envelope"></i>
-                          </div>
+                          <h5>{{chatTitulo(group.id_group)}}
+                            <div :class="[checkIfIsRead(group.read)?'hide':'show']">
+                              <i class="fas fa-envelope newMessage"></i>
+                            </div>
+                          </h5>
                           
-                          <h5>{{chatTitulo(group.id_group)}}</h5>
                         </div>
                       </div>
                     </div>
                   </a>
                 </div>
-                
               </div>
             </div>
 
@@ -320,11 +327,13 @@ export default {
       
       let id_group = idSelectedChat;
       //this.editChatInfo(id_group, this.message);
+      this.setOthersAsUnread(usrlogedID, id_group);
       this.editTimestampGroup(id_group, this.message);
       
       this.message=null;
 
-      this.setOthersAsUnread(usrlogedID, this.idChatSeleccionado);
+      //this.setOthersAsUnread(usrlogedID, this.idChatSeleccionado);
+      //this.setOthersAsUnread(usrlogedID, idSelectedChat);
     },
 
     recuperarMensajesNewVersion(){
@@ -344,17 +353,13 @@ export default {
         })
         
         this.messages=allMessages;
+        this.setAsRead(usrlogedID, this.idChatSeleccionado);
         
         setTimeout(()=>{
           this.scrollToBottom();
         },100);
+        
       })
-
-      //console.log("ANTES DE EDITAR LEIDOS");
-      //console.log(this.idChatSeleccionado);
-      // /console.log(usrlogedID);
-      this.setOthersAsUnread(usrlogedID, this.idChatSeleccionado);
-			
     },
 
     //CHATS
@@ -543,27 +548,8 @@ export default {
       });
     },
 
-    setOthersAsUnread(usrlogedID, idChatSelected){
-      console.log("setOthersAsUnread");
-
-      //let myGrupo = this.myObjectToMap(this.groups);
-      var myGrupo = this.myObjectToArray(this.groups);
-      console.log(myGrupo);
-      let myGrupo2 = myGrupo.filter(obj => {
-        return obj.id_group === idChatSelected
-      })
-      console.log("myGrupo2",myGrupo2);
-
-      let myGrupo3 = this.myObjectToMap(myGrupo2);
-      console.log("myGrupo3",myGrupo3);
-
-      
-      //this.
-
-    },
-
     setAsRead(id_user, id_group){    
-      console.log("setAsRead");
+      //console.log("setAsRead");
       //console.log("id_group:  ",id_group);
       let newRead = "read." + id_user;
 
@@ -580,14 +566,15 @@ export default {
       });
     },
 
-    setAsUnread(id_user, id_group){    
-      console.log("setAsUnread");
-      //console.log("id_group:  ",id_group);
-      let newRead = "read." + id_user;
+    setAsUnread(id_userUR, id_group){    
+      //console.log("setAsUnread");
+      //console.log("mapOfUnreads:  ",mapOfUnreads);
+      let newRead = "read." + id_userUR;
 
       const usersRef = db.collection("groups").doc(id_group);
       return usersRef.update({
         [newRead]: false, //true significa que ha liedo los mensajes
+        //read: mapOfUnreads
       })
       .then(() => {
           //console.log("Document successfully updated!");
@@ -598,17 +585,30 @@ export default {
       });
     },
 
+    setOthersAsUnread(usrlogedID, idChatSelected){
+      //console.log("setOthersAsUnread");
+      var myGrupo = this.myObjectToArray(this.groups);
+      myGrupo = myGrupo.find(group => group.id_group === idChatSelected);
+      myGrupo = this.myObjectToMap(myGrupo.members);
+      //console.log("FIND",myGrupo);
+      let myMapOfUnreads = new Map();
+
+      for (var [key, value] of myGrupo) {
+        //console.log(key + " = " + value);
+        if(key != usrlogedID && value != false){
+          console.log(key + " = " + value);
+          this.setAsUnread(key, idChatSelected);
+        }
+      }
+    },
+
     checkIfIsRead(read){
-      //read = this.myObjectToArray(read);
-      //myGroups = Object.keys(myGroups);
-      read = this.myObjectToMap(read);
-      //console.log("READ",read);
-      //console.log("logeado",usrlogedID);
-      //console.log("mi estado",read.get(usrlogedID));
+      //console.log("read",read);
       let isRead = false;
-
-      isRead = read.get(usrlogedID);
-
+      if(read != undefined) {
+        read = this.myObjectToMap(read);
+        isRead = read.get(usrlogedID);
+      }
       return isRead;
     },
 
@@ -631,12 +631,7 @@ export default {
 
     chatTitulo(id_group){
       //convierto el objeto de objetos en arreglo
-      //var arrayGroups = Object.keys(this.groups).map(key => {
-        //return this.groups[key];
-      //})
       var arrayGroups = this.myObjectToArray(this.groups);
-      //arrayGroups
-
 
       //extraigo el grupo actual a mostrar
       let actualGroup = arrayGroups.find(group => group.id_group === id_group);
@@ -684,29 +679,7 @@ export default {
 
       //console.log(idSelectedChat);
       this.recuperarMensajesNewVersion();//descomentar
-      
     },
-
-    /*
-    async getUserData(id){
-      var usersRef = db.collection("users").doc(id);
-      let usrrname =null;
-      let userData = await usersRef.get()
-      .then((doc) => {
-        if (doc.exists) {
-          
-          usrrname=doc.data().userName;
-          // /console.log('username: ',usrrname);
-        } else {
-        }
-      }).catch((error) => {
-        //el usuario ya está en la base de datos.
-      });
-
-      //console.log("USERDATA", usrrname);
-      return usrrname;
-    },
-    */
 
     selectUser(selectedUID, selectedUser){
       this.showChats();
@@ -835,6 +808,10 @@ export default {
         },
         lastMessage: "",
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        read: {
+          [usrlogedID]: true,
+          [usrSelectedID]: true
+        },
       }).then(() => {
       }).catch((error) => {
         console.log('Error: ', error);
@@ -1124,6 +1101,10 @@ img{ max-width:100%;}
   background:#b6b4b4;
 }
 
+.newMessage {
+  display: inline-block;
+  float: right;
+}
 
 
 </style>
